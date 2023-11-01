@@ -44,11 +44,7 @@ Xchr_gnames= c('XIST','AR')
 ychr_counts <- counts[ychr_genes,]
 xchr_counts <- counts[xchr_genes,]
 
-# ids_list <- colnames(counts)
-# ids_list <- ids_list[3:length(ids_list)]
-
 ## may want a version of new_counts for x and y?:
-
 new_counts1 <- data.frame(t(subset(xchr_counts, select = -c(gene_name,gene_type))))
 colnames(new_counts1) <- xchr_counts[, 1]
 
@@ -58,7 +54,9 @@ colnames(new_counts2) <- ychr_counts[, 1]
 new_counts <- data.frame(c(new_counts1,new_counts2))
 row.names(new_counts) <- row.names(new_counts1)
 
+################################################
 ###---CHECK FOR REPEATS AND LOOK AT VALUES---###
+################################################
 
 # Return list of row labels (ids): 
 id_list <- rownames(new_counts)
@@ -78,10 +76,7 @@ for (x in c_uuid){
       # whatdo
       rows_keep <- id_sets[[x]]
       
-      # PUTTING INTO A SEPARATE DF TO *LOOK* AT FOR NOW; PROBABLY WANT TO DO
-      # SOMETHING MORE STATISTICAL TO DETERMINE WHICH TO KEEP -- COULD CHOOSE
-      # RANDOMLY AS OPPOSED TO SOMETHING "SMART" AS WELL.
-      
+      # PUTTING THESE INTO A SEPARATE DF TO *LOOK* AT:
       repeats_df <- bind_rows(repeats_df, new_counts[rows_keep[1],])
       repeats_df <- bind_rows(repeats_df, new_counts[rows_keep[2],])
       
@@ -89,7 +84,7 @@ for (x in c_uuid){
     }
 }
 
-# WRITE REPEATS DATAFRAME TO TSV FILE: 
+# WRITE REPEATS DATAFRAME TO TSV FILE:
 write_tsv(
   repeats_df,
   "TCGA_LIHC_TPM_Repeated_Counts.tsv",
@@ -101,9 +96,36 @@ write_tsv(
   num_threads = readr_threads(),
   progress = show_progress()
 )
+###################################################
+###--END - CHECK FOR REPEATS AND LOOK AT VALUES-###
+###################################################
 
-###---END - CHECK FOR REPEATS AND LOOK AT VALUES---###
+### FINALLY, SEX CHECK OF THE SAMPLES!
 
+# Pseudo code to get started:
+
+# first, look at values of XIST and DDX3Y in each observation (by id)
+# and assign a category - assumed XX, assumed XY, or neither
+
+##  XIST > 1.0 && DDX3Y < 1.0 => infer XX -> F in metadata?
+##  XIST < 1.0 && DDX3Y > 1.0 => infer XY -> M in metadata?
+##  ALL ELSE.. => something interesting might be going on!
+##  (e.g., both low might suggest loss of a Y from an XY individual)
+
+# note that using ids, we should be able to handle the double observations
+# of repeated samples, but might want to tread carefully there.
+
+# put that categorization in a new df with same combo uuids for the rownames
+
+# then, take the ids x categories df and add M/F from corresponding metadata
+
+# lastly, can start doing fun things - plots,
+# comparing with survival/disease stage, etc.
+
+
+###################################################
+###################################################
+# OLD PLOT CODE - WILL REVISE AFTER ISOLATING THE DATA WE WANT TO LOOK AT.
 plotable_counts <- reshape(new_counts,
                varying = Xchr_gnames,
                v.names = 'counts',
