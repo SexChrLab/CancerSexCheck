@@ -1,14 +1,16 @@
 # WORKFLOW for CIREN TCGA SEX chromosomes vs Survival
 
 # Import libraries to use
+library(tidyverse)
 library(ggplot2)
 library(plotly)
 
 # Read in data file(s) of interest/to use
-counts = read.delim(filename, row.names = 1) # for use from saved file
+setwd('C:/Users/scmassey/Documents/CIREN/2023-Fall-MW/')
+counts = read.delim('data/TCGA_LIHC_TPM.tsv', row.names = 1) # for use from saved file
 # counts = data.frame(tpm_df, row.names = 1) # for testing - already in workspace
 
-# plot violins (with jitter) of: 
+# Genes under consideration for inference:
 #   chromosome Y
 #     AMELY  ENSG00000099721
 #     DDX3Y  ENSG00000067048
@@ -21,7 +23,7 @@ counts = read.delim(filename, row.names = 1) # for use from saved file
 #     UTY    ENSG00000183878
 #     ZFY    ENSG00000067646
 #     SRY    ENSG00000184895
-#     TSPY   (may be challenging due to multicopy) # LEFT OUT FOR NOW -  
+#     TSPY   (may be challenging due to multicopy) # LEFT OUT FOR NOW -
 #                                                  # NOT SURE WHICH ONE/S TO USE 
 #                                                  # ... AND THERE ARE 10+
 # 
@@ -58,7 +60,7 @@ row.names(new_counts) <- row.names(new_counts1)
 ###---CHECK FOR REPEATS AND LOOK AT VALUES---###
 ################################################
 
-# Return list of row labels (ids): 
+# Return list of row labels (ids):
 id_list <- rownames(new_counts)
 
 # Extract file and case uuid's from combo:
@@ -75,11 +77,11 @@ for (x in c_uuid){
     if (length(id_sets[[x]])>1){
       # whatdo
       rows_keep <- id_sets[[x]]
-      
+
       # PUTTING THESE INTO A SEPARATE DF TO *LOOK* AT:
       repeats_df <- bind_rows(repeats_df, new_counts[rows_keep[1],])
       repeats_df <- bind_rows(repeats_df, new_counts[rows_keep[2],])
-      
+
       rep_cases_list <- c(rep_cases_list, substr(rows_keep[1],39,74))
     }
 }
@@ -105,13 +107,17 @@ write_tsv(
 # Pseudo code to get started:
 
 # first, look at values of XIST and DDX3Y in each observation (by id)
-# and assign a category - assumed XX, assumed XY, or neither
+# and assign a category - assumed XX, assumed XY, or neither:
 
-##  XIST > 1.0 && DDX3Y < 1.0 => infer XX -> F in metadata?
-##  XIST < 1.0 && DDX3Y > 1.0 => infer XY -> M in metadata?
-##  ALL ELSE.. => something interesting might be going on!
-##  (e.g., both low might suggest loss of a Y from an XY individual)
-
+for (id in ids){
+  if (new_counts[id,"XIST"] > 1.0 && new_counts[id,"DDX3Y"] < 1.0) {
+    #something to pair id with category "infer_XX"
+  } else if (new_counts[id,"XIST"] < 1.0 && new_counts[id,"DDX3Y"] > 1.0) {
+    #something to pair id with category "infer_XY"
+  } else {
+    #something to pair id with category "no_inference"
+  }
+}
 # note that using ids, we should be able to handle the double observations
 # of repeated samples, but might want to tread carefully there.
 
@@ -215,7 +221,7 @@ fig <- fig %>%
 fig
 
 
-# right now we mostly want to see the distribution of these to decide what's useful; 
+# right now we mostly want to see the distribution of these to decide what's useful;
 # may also want a reference gene (or two, three..) that we expect to be unaffected
 
 
