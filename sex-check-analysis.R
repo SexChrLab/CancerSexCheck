@@ -12,7 +12,7 @@ metadf <- read.delim("data/TCGA_LIHC_META.tsv", row.names = 1)
 
 # Modify row id's in metadf to correspond to similar format in counts
 meta_ids <- rownames(metadf)
-meta_ids <- gsub("[-]",".", meta_ids)
+meta_ids <- gsub("[-]", ".", meta_ids)
 rownames(metadf) <- meta_ids
 
 
@@ -75,14 +75,10 @@ splt_id_list <- strsplit(id_list, "[_]")
 c_uuid <- vector(mode = "character", length = length(id_list))
 f_uuid <- vector(mode = "character", length = length(id_list))
 
-for (j in 1:length(id_list)) {
+for (j in seq_along(length(id_list))) {
   f_uuid[j] <- splt_id_list[[j]][1]
   c_uuid[j] <- splt_id_list[[j]][2]
 }
-# c_uuid <- unique(c_uuid)
-# 
-# old_f_uuid <- substr(id_list,2,37)
-# old_c_uuid <- substr(id_list,39,74)
 
 # Organize ids by case uuid (for viewing)
 id_sets <- split(id_list, c_uuid)
@@ -105,18 +101,6 @@ for (x in c_uuid) {
   }
 }
 
-# # WRITE REPEATS DATAFRAME TO TSV FILE:
-# write_tsv(
-#   repeats_df,
-#   "TCGA_LIHC_TPM_Repeated_Counts.tsv",
-#   na = "NA",
-#   append = FALSE,
-#   col_names = TRUE,
-#   quote = "none",
-#   eol = "\n",
-#   num_threads = readr_threads(),
-#   progress = show_progress()
-# )
 ###################################################
 ###--END - CHECK FOR REPEATS AND LOOK AT VALUES-###
 ###################################################
@@ -129,16 +113,16 @@ colnames(sex_check) <- c("inferred", "assigned")
 
 for (xid in c_uuid){
   kid <- id_sets[[xid]]
-  if (all(new_counts[kid, "XIST"] > 1.0, 
+  if (all(new_counts[kid, "XIST"] > 1.0,
           new_counts[kid, "DDX3Y"] < 1.0,
           new_counts[kid, "USP9Y"] < 1.0,
           new_counts[kid, "UTY"] < 1.0,
           new_counts[kid, "ZFY"] < 1.0)) {
     sex_check[xid, "inferred"] <- "XX"
-  } else if (new_counts[kid, "XIST"] < 1.0 & any(new_counts[kid, "DDX3Y"] > 1.0,
-                                                 new_counts[kid, "USP9Y"] > 1.0,
-                                                 new_counts[kid, "UTY"] > 1.0,
-                                                 new_counts[kid, "ZFY"] > 1.0)) {
+  } else if (new_counts[kid, "XIST"] < 1.0 && any(new_counts[kid, "DDX3Y"] > 1.0,
+                                                  new_counts[kid, "USP9Y"] > 1.0,
+                                                  new_counts[kid, "UTY"] > 1.0,
+                                                  new_counts[kid, "ZFY"] > 1.0)) {
     sex_check[xid, "inferred"] <- "XY"
   } else {
     sex_check[xid, "inferred"] <- "no_inference"
@@ -148,7 +132,7 @@ for (xid in c_uuid){
 
 # note that using ids, we should be able to handle the double observations of
 # repeated samples, esp with all/any, but might want to tread carefully there
-# >>> NOPE! GOT WARNINGS ABOUT THIS.. 
+# >>> NOPE! GOT WARNINGS ABOUT THIS..
 # WILL NEED TO RETHINK HOW TO HANDLE THE MULTIPLE SAMPLE CASES HERE
 
 # AND NEXT, look at survival info and/or disease stage.
@@ -165,7 +149,7 @@ plotable_counts <- reshape(new_counts,
                            v.names = "counts",
                            timevar = "gene_names",
                            times = xchr_gnames,
-                           direction = 'long')
+                           direction = "long")
 
 fig <- plotable_counts %>%
   plot_ly(
