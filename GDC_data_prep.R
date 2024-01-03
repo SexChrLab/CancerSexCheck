@@ -19,17 +19,17 @@ follow_list <- clindat[["diagnoses"]][["days_to_last_follow_up"]]
 meta_df <- data.frame(cbind(case_ids, mf_list, status_list,
                             surv_times, follow_list))
 
-# write_tsv(
-#   meta_df,
-#   "TCGA_LIHC_META.tsv",
-#   na = "NA",
-#   append = FALSE,
-#   col_names = TRUE,
-#   quote = "none",
-#   eol = "\n",
-#   num_threads = readr_threads(),
-#   progress = show_progress()
-# )
+write_tsv(
+  meta_df,
+  "/data/CEM/shared/public_data/TCGA_RNAseq_counts/TCGA_LIHC_META.tsv",
+  na = "NA",
+  append = FALSE,
+  col_names = TRUE,
+  quote = "none",
+  eol = "\n",
+  num_threads = readr_threads(),
+  progress = show_progress()
+)
 
 ### -----------------------------
 # Create a manifest of files to download:
@@ -42,16 +42,17 @@ ge_manifest <- files() %>%
   manifest()
 
 # Set up directory for download:
-setwd("C:/Users/scmassey/Documents/CIREN/")
+setwd("~/Desktop/2023-Fall-CIREN/")
 dir.create("TCGA-LIHC-StarCounts")
 gdc_set_cache(directory = "TCGA-LIHC-StarCounts/")
 
 # Download the counts data:
-# can download just a subset to test: lapply(ge_manifest$id[1:100], gdcdata)
-fnames <- lapply(ge_manifest, gdcdata)
+# can download just a subset to test: 
+# fnames <- lapply(ge_manifest$id[1:15], gdcdata)
+fnames <- lapply(ge_manifest$id, gdcdata)
 
 # Create a list of files that contain the counts:
-path <- "C:/Users/scmassey/Documents/CIREN/TCGA-LIHC-StarCounts/"
+path <- "~/Desktop/2023-Fall-CIREN/TCGA-LIHC-StarCounts/"
 
 files <- dir(path = path, pattern = "*.counts", recursive = TRUE) %>%
   paste0(path, .)
@@ -73,7 +74,7 @@ all_df <- read_tsv(files[1], skip = 1, comment = "N_",
                                     fpkm_uq_unstranded = "d"))
 
 # strip out the uuid from the filename string & find corresponding case uuid
-file_uuid <- substr(files[1], 56, 91)
+file_uuid <- substr(files[1], 48, 83)
 case_uuid <- UUIDtoUUID(file_uuid, to_type = "case_id")
 combo_uuid <- paste(file_uuid, case_uuid[1, 2], sep = "_")
 
@@ -89,7 +90,7 @@ fpkm_uq_df <- subset(all_df, select = -c(unstranded, stranded_first,
 
 tpm_df <- tpm_df %>% rename_at("tpm_unstranded", ~combo_uuid)
 fpkm_df <- fpkm_df %>% rename_at("fpkm_unstranded", ~combo_uuid)
-fpkm_uq_df <- fpkm_uq_df %>% rename_at("fpkm_uq_unstrande", ~combo_uuid)
+fpkm_uq_df <- fpkm_uq_df %>% rename_at("fpkm_uq_unstranded", ~combo_uuid)
 
 
 # LOOP THROUGH REMAINING FILES TO APPEND TPM COUNTS WTIH TCGA BARCODE COL LABELS
@@ -97,7 +98,7 @@ fpkm_uq_df <- fpkm_uq_df %>% rename_at("fpkm_uq_unstrande", ~combo_uuid)
 for (filename in files[2:length(files)]) {
 
   # strip out the uuid from the filename string & find corresponding case uuid
-  file_uuid <- substr(filename, 56, 91)
+  file_uuid <- substr(filename, 48, 83)
   case_uuid <- UUIDtoUUID(file_uuid, to_type = "case_id")
   combo_uuid <- paste(file_uuid, case_uuid[1, 2], sep = "_")
 
@@ -160,21 +161,10 @@ for (filename in files[2:length(files)]) {
 }
 
 # WRITE DATAFRAMEs TO TSV FILES:
-write_tsv(
-  meta_df,
-  "TCGA_LIHC_META.tsv",
-  na = "NA",
-  append = FALSE,
-  col_names = TRUE,
-  quote = "none",
-  eol = "\n",
-  num_threads = readr_threads(),
-  progress = show_progress()
-)
 
 write_tsv(
   tpm_df,
-  "TCGA_LIHC_TPM.tsv",
+  "/data/CEM/shared/public_data/TCGA_RNAseq_counts/TCGA_LIHC_TPM.tsv",
   na = "NA",
   append = FALSE,
   col_names = TRUE,
@@ -186,7 +176,7 @@ write_tsv(
 
 write_tsv(
   fpkm_df,
-  "TCGA_LIHC_FPKM.tsv",
+  "/data/CEM/shared/public_data/TCGA_RNAseq_counts/TCGA_LIHC_FPKM.tsv",
   na = "NA",
   append = FALSE,
   col_names = TRUE,
@@ -198,7 +188,7 @@ write_tsv(
 
 write_tsv(
   fpkm_uq_df,
-  "TCGA_LIHC_FPKM_UQ.tsv",
+  "/data/CEM/shared/public_data/TCGA_RNAseq_counts/TCGA_LIHC_FPKM_UQ.tsv",
   na = "NA",
   append = FALSE,
   col_names = TRUE,

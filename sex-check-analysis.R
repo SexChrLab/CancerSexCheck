@@ -6,9 +6,9 @@ library(ggplot2)
 library(plotly)
 
 # Read in data files of interest/to use
-setwd("C:/Users/scmassey/Documents/CIREN/2023-Fall-MW/")
-counts <- read.delim("data/TCGA_LIHC_TPM.tsv", row.names = 1)
-metadf <- read.delim("data/TCGA_LIHC_META.tsv", row.names = 1)
+setwd("~/Desktop/2023-Fall-CIREN/")
+counts <- read.delim("/data/CEM/shared/public_data/TCGA_RNAseq_counts/TCGA_LIHC_TPM.tsv", row.names = 1)
+metadf <- read.delim("/data/CEM/shared/public_data/TCGA_RNAseq_counts/TCGA_LIHC_META.tsv", row.names = 1)
 
 # Modify row id's in metadf to correspond to similar format in counts
 meta_ids <- rownames(metadf)
@@ -75,7 +75,9 @@ splt_id_list <- strsplit(id_list, "[_]")
 c_uuid <- vector(mode = "character", length = length(id_list))
 f_uuid <- vector(mode = "character", length = length(id_list))
 
-for (j in seq_along(length(id_list))) {
+for (j in 1:424) {
+# for (j in seq_along(length(id_list))) {
+  print(j)
   f_uuid[j] <- splt_id_list[[j]][1]
   c_uuid[j] <- splt_id_list[[j]][2]
 }
@@ -107,77 +109,226 @@ for (x in c_uuid) {
 
 ### FINALLY, SEX CHECK OF THE SAMPLES!
 
-sex_check <- data.frame(matrix(0, length(c_uuid), 2),
+sex_check <- data.frame(matrix(0, length(c_uuid), 5),
                         row.names = c_uuid)
-colnames(sex_check) <- c("inferred", "assigned")
+colnames(sex_check) <- c("status_XIST", "status_Y", "assigned",
+                         "survival", "followed")
 
-for (xid in c_uuid){
-  kid <- id_sets[[xid]]
-  if (all(new_counts[kid, "XIST"] > 1.0,
-          new_counts[kid, "DDX3Y"] < 1.0,
-          new_counts[kid, "USP9Y"] < 1.0,
-          new_counts[kid, "UTY"] < 1.0,
-          new_counts[kid, "ZFY"] < 1.0)) {
-    sex_check[xid, "inferred"] <- "XX"
-  } else if (new_counts[kid, "XIST"] < 1.0 && any(new_counts[kid, "DDX3Y"] > 1.0,
-                                                  new_counts[kid, "USP9Y"] > 1.0,
-                                                  new_counts[kid, "UTY"] > 1.0,
-                                                  new_counts[kid, "ZFY"] > 1.0)) {
-    sex_check[xid, "inferred"] <- "XY"
+dummy_df <- data.frame(matrix(0, length(id_list), 5))
+
+counts_plus <- data.frame(c(new_counts, dummy_df))
+row.names(counts_plus) <- row.names(new_counts)
+colnames(counts_plus) <- c(colnames(new_counts), "status_XIST", "status_Y",
+                           "assigned", "survival", "followed")
+
+for (i in c_uuid){
+  sex_check[i, "assigned"] <- metadf[i, "mf_list"]
+  sex_check[i, "survival"] <- metadf[i, "surv_times"]
+  sex_check[i, "followed"] <- metadf[i, "follow_list"]
+  if (length(id_sets[[i]]) > 1) {
+    iid1 <- id_sets[[i]][1]
+    iid2 <- id_sets[[i]][2]
+    counts_plus[iid1, "assigned"] <- metadf[i, "mf_list"]
+    counts_plus[iid2, "assigned"] <- metadf[i, "mf_list"]
+    counts_plus[iid1, "survival"] <- metadf[i, "surv_times"]
+    counts_plus[iid2, "survival"] <- metadf[i, "surv_times"]
+    counts_plus[iid1, "followed"] <- metadf[i, "follow_list"]
+    counts_plus[iid2, "followed"] <- metadf[i, "follow_list"]
+    if (all(new_counts[iid1, "DDX3Y"] < 1.0,
+            new_counts[iid1, "USP9Y"] < 1.0,
+            new_counts[iid1, "UTY"] < 1.0,
+            new_counts[iid1, "ZFY"] < 1.0)) {
+      counts_plus[iid1, "status_Y"] <- "no"
+    } else {
+      counts_plus[iid1, "status_Y"] <- "yes"
+    }
+    if (all(new_counts[iid2, "DDX3Y"] < 1.0,
+            new_counts[iid2, "USP9Y"] < 1.0,
+            new_counts[iid2, "UTY"] < 1.0,
+            new_counts[iid2, "ZFY"] < 1.0)) {
+      counts_plus[iid2, "status_Y"] <- "no"
+    } else {
+      counts_plus[iid2, "status_Y"] <- "yes"
+    }
+    if (counts_plus[iid1, "status_Y"] == "yes" &&
+        counts_plus[iid2, "status_Y"] == "yes") {
+      sex_check[i, "status_Y"] <- "yes"
+    } else {
+      sex_check[i, "status_Y"] <- "no"
+    }
+    if (new_counts[iid1, "XIST"] > 1.0) {
+      counts_plus[iid1, "status_XIST"] <- "yes"
+    } else {
+      counts_plus[iid1, "status_XIST"] <- "no"
+    }
+    if (new_counts[iid2, "XIST"] > 1.0) {
+      counts_plus[iid2, "status_XIST"] <- "yes"
+    } else {
+      counts_plus[iid2, "status_XIST"] <- "no"
+    }
+    if (counts_plus[iid1, "status_XIST"] == "yes" &&
+        counts_plus[iid2, "status_XIST"] == "yes"){
+      sex_check[i ,"status_XIST"] == "yes"
+    } else {
+      sex_check[i, "status_XIST"] == "no"
+    }
   } else {
-    sex_check[xid, "inferred"] <- "no_inference"
+    iid <- id_sets[[i]]
+    counts_plus[iid, "assigned"] <- metadf[i, "mf_list"]
+    counts_plus[iid, "survival"] <- metadf[i, "surv_times"]
+    counts_plus[iid, "followed"] <- metadf[i, "follow_list"]
+    if (all(new_counts[iid, "DDX3Y"] < 1.0,
+            new_counts[iid, "USP9Y"] < 1.0,
+            new_counts[iid, "UTY"] < 1.0,
+            new_counts[iid, "ZFY"] < 1.0)) {
+      counts_plus[iid, "status_Y"] <- "no"
+      sex_check[i, "status_Y"] <- "no"
+    } else {
+      counts_plus[iid, "status_Y"] <- "yes"
+      sex_check[i, "status_Y"] <- "yes"
+    }
+    if (new_counts[iid, "XIST"] > 1.0) {
+      counts_plus[i, "status_XIST"] <- "yes"
+      sex_check[i, "status_XIST"] <- "yes"
+    } else {
+      counts_plus[i, "status_XIST"] <- "no"
+      sex_check[i, "status_XIST"] <- "no"
+    }
   }
-  sex_check[xid, "assigned"] <- metadf[xid, "mf_list"]
 }
 
-# note that using ids, we should be able to handle the double observations of
-# repeated samples, esp with all/any, but might want to tread carefully there
-# >>> NOPE! GOT WARNINGS ABOUT THIS..
-# WILL NEED TO RETHINK HOW TO HANDLE THE MULTIPLE SAMPLE CASES HERE
-
-# AND NEXT, look at survival info and/or disease stage.
-# Q: add as additional columns to the sex_check df?
-#    or keep separate as e.g., "outcomes" and pair up by row ids?
-# A: look at what plot functions of interest expect as inputs and fit that
-
+# NEED TO ADD ROW IDS IN A COLUMN TO USE
+write_tsv(
+  sex_check %>% rownames_to_column(),
+  "TCGA_LIHC_inferences.tsv",
+  na = "NA",
+  append = FALSE,
+  col_names = TRUE,
+  quote = "none",
+  eol = "\n",
+  num_threads = readr_threads(),
+  progress = show_progress()
+)
 
 ###################################################
 ###################################################
-# OLD PLOT CODE USED - REVISE AFTER ISOLATING THE DATA WE WANT TO LOOK AT.
-plotable_counts <- reshape(new_counts,
-                           varying = xchr_gnames,
-                           v.names = "counts",
-                           timevar = "gene_names",
-                           times = xchr_gnames,
-                           direction = "long")
+# PLOT CODE - NOT YET UPDATED SINCE CHANGE TO XIST-yes/no vs Y-chr-yes/no
 
-fig <- plotable_counts %>%
+# First,
+# want to look at counts for each gene among the no_inference group
+# with a line to connect subjects across the different genes
+
+not_inferred <- counts_plus %>% filter(inferred == "no_inference")
+gene_names <- c(xchr_gnames, ychr_gnames)
+
+# Dropping SRY
+gene_names <- gene_names[-13]
+
+# Drop genes not used for inference
+gene_names_short <- c("XIST", "DDX3Y", "USP9Y", "UTY", "ZFY")
+
+# Reshape to work well with plot functions;
+# Consider retaining an additional column for "assigned" = M/F
+not_inferred_plots <- reshape(not_inferred,
+                              varying = gene_names,
+                              drop = c("SRY", "inferred", "assigned",
+                                       "survival", "followed"),
+                              v.names = "TPM_counts",
+                              timevar = "gene_names",
+                              times = gene_names,
+                              ids = row.names(not_inferred),
+                              direction = "long")
+
+fig1 <- not_inferred_plots %>%
+  group_by(id) %>%
   plot_ly(
     x = ~gene_names,
-    y = ~counts,
-    type = "violin",
-    box = list(
-      visible = TRUE
-    ),
-    meanline = list(
-      visible = TRUE
-    ),
-    x0 = xchr_gnames
+    y = ~TPM_counts,
+    type = "scatter",
+    mode = "lines+markers"
   )
 
-fig <- fig %>%
+fig1 <- fig1 %>%
   layout(
     xaxis = list(
       title = "gene"
     ),
     yaxis = list(
+      type = "log",
       title = "TPM",
       zeroline = FALSE
     )
   )
 
-fig
+fig1
 
+# different ways to specify the layout here
+fig <- layout(fig, yaxis = list(type = "log"))
+
+# Not interactive, but ggplot is giving something
+# more like what I think we have in mind:
+ggplot(data = not_inferred_plots, aes(x = gene_names, y = TPM_counts,
+                                      group = id)) +
+  geom_point() + geom_line() + scale_y_continuous(trans = "log10")
+
+
+not_inferred_plots2 <- reshape(not_inferred,
+                               varying = gene_names_short,
+                               drop = c("AR", "AMELY", "EIF1AY", "KDM5D",
+                                        "NLGN4Y", "PRKKY", "TMSB4Y", "SRY",
+                                        "inferred", "assigned",
+                                        "survival", "followed"),
+                               v.names = "TPM_counts",
+                               timevar = "gene_names_short",
+                               times = gene_names_short,
+                               ids = row.names(not_inferred),
+                               direction = "long")
+
+fig2 <- not_inferred_plots2 %>%
+  group_by(id) %>%
+  plot_ly(
+    x = ~gene_names_short,
+    y = ~TPM_counts,
+    type = "scatter",
+    mode = "lines+markers"
+  )
+
+fig2 <- fig2 %>%
+  layout(
+    xaxis = list(
+      title = "gene"
+    ),
+    yaxis = list(
+      type = "log",
+      title = "TPM",
+      zeroline = FALSE
+    )
+  )
+
+fig2
+
+not_inferred2 <- subset(not_inferred, select = -c(AR, AMELY, EIF1AY,
+                                                  KDM5D, NLGN4Y, PRKY,
+                                                  TMSB4Y, SRY))
+
+write_tsv(
+  not_inferred2 %>% rownames_to_column(),
+  "TCGA_LIHC_inferences-counts.tsv",
+  na = "NA",
+  append = FALSE,
+  col_names = TRUE,
+  quote = "none",
+  eol = "\n",
+  num_threads = readr_threads(),
+  progress = show_progress()
+)
+
+ggplot(data = not_inferred_plots2, aes(x = gene_names_short, y = TPM_counts,
+                                       group = id, color = id)) +
+  scale_color_discrete(guide = "none") +
+  geom_point() + geom_line() + scale_y_continuous(trans = "log10")
+
+## OLD PLOTTING STUFF BELOW - MODIFY OR REMOVE
 new_counts2 <- data.frame(t(subset(ychr_counts,
                                    select = -c(gene_name, gene_type))))
 colnames(new_counts2) <- ychr_counts[, 1]
