@@ -75,9 +75,7 @@ splt_id_list <- strsplit(id_list, "[_]")
 c_uuid <- vector(mode = "character", length = length(id_list))
 f_uuid <- vector(mode = "character", length = length(id_list))
 
-for (j in 1:424) {
-# for (j in seq_along(length(id_list))) {
-  print(j)
+for (j in seq_len(length(id_list))) {
   f_uuid[j] <- splt_id_list[[j]][1]
   c_uuid[j] <- splt_id_list[[j]][2]
 }
@@ -188,10 +186,10 @@ for (i in c_uuid){
       sex_check[i, "status_Y"] <- "yes"
     }
     if (new_counts[iid, "XIST"] > 1.0) {
-      counts_plus[i, "status_XIST"] <- "yes"
+      counts_plus[iid, "status_XIST"] <- "yes"
       sex_check[i, "status_XIST"] <- "yes"
     } else {
-      counts_plus[i, "status_XIST"] <- "no"
+      counts_plus[iid, "status_XIST"] <- "no"
       sex_check[i, "status_XIST"] <- "no"
     }
   }
@@ -214,20 +212,117 @@ write_tsv(
 ###################################################
 # PLOT CODE - NOT YET UPDATED SINCE CHANGE TO XIST-yes/no vs Y-chr-yes/no
 
-# First,
-# want to look at counts for each gene among the no_inference group
-# with a line to connect subjects across the different genes
+# # First,
+# # want to look at counts for each gene among the no_inference group
+# # with a line to connect subjects across the different genes
+# 
+# not_inferred <- counts_plus %>% filter(inferred == "no_inference")
 
-not_inferred <- counts_plus %>% filter(inferred == "no_inference")
-gene_names <- c(xchr_gnames, ychr_gnames)
+# Two Groups of Interest:
 
-# Dropping SRY
-gene_names <- gene_names[-13]
+# 1. no XIST and no Y
+no_Xist_no_Y <- sex_check %>% filter(status_XIST == "no" & status_Y == "no")
+no_Xist_no_Y_counts <- counts_plus %>% filter(status_XIST == "no" & status_Y == "no")
 
-# Drop genes not used for inference
+# 2. yes XIST and yes Y
+yes_Xist_yes_Y <- sex_check %>% filter(status_XIST == "yes" & status_Y == "yes")
+yes_Xist_yes_Y_counts <- counts_plus %>% filter(status_XIST == "yes" & status_Y == "yes")
+
+# Prepping list of gene names for plot functions below:
+# gene_names <- c(xchr_gnames, ychr_gnames)
+# # Drop SRY
+# gene_names <- gene_names[-13]
+# # Drop genes not used for inference
 gene_names_short <- c("XIST", "DDX3Y", "USP9Y", "UTY", "ZFY")
 
-# Reshape to work well with plot functions;
+# Reshape to work well with plot functions:
+no_Xist_no_Y_plots <- reshape(no_Xist_no_Y_counts,
+                              varying = gene_names_short,
+                              drop = c("AR", "AMELY", "EIF1AY", "KDM5D",
+                                       "NLGN4Y", "PRKKY", "TMSB4Y", "SRY",
+                                       "status_XIST", "status_Y", "assigned",
+                                       "survival", "followed"),
+                              v.names = "TPM_counts",
+                              timevar = "gene_names_short",
+                              times = gene_names_short,
+                              ids = row.names(no_Xist_no_Y_counts),
+                              direction = "long")
+
+yes_Xist_yes_Y_plots <- reshape(yes_Xist_yes_Y_counts,
+                              varying = gene_names_short,
+                              drop = c("AR", "AMELY", "EIF1AY", "KDM5D",
+                                       "NLGN4Y", "PRKKY", "TMSB4Y", "SRY",
+                                       "status_XIST", "status_Y", "assigned",
+                                       "survival", "followed"),
+                              v.names = "TPM_counts",
+                              timevar = "gene_names_short",
+                              times = gene_names_short,
+                              ids = row.names(yes_Xist_yes_Y_counts),
+                              direction = "long")
+
+# Plots
+
+# with Plotly - these don't look quite right yet
+
+fig1 <- no_Xist_no_Y_plots %>%
+  group_by(id) %>%
+  plot_ly(
+    x = ~gene_names_short,
+    y = ~TPM_counts,
+    type = "scatter",
+    mode = "lines+markers"
+  )
+
+fig1 <- fig1 %>%
+  layout(
+    xaxis = list(
+      title = "gene"
+    ),
+    yaxis = list(
+      type = "log",
+      title = "TPM",
+      zeroline = FALSE
+    )
+  )
+
+fig1
+
+fig2 <- yes_Xist_yes_Y_plots %>%
+  group_by(id) %>%
+  plot_ly(
+    x = ~gene_names_short,
+    y = ~TPM_counts,
+    type = "scatter",
+    mode = "lines+markers"
+  )
+
+fig2 <- fig2 %>%
+  layout(
+    xaxis = list(
+      title = "gene"
+    ),
+    yaxis = list(
+      type = "log",
+      title = "TPM",
+      zeroline = FALSE
+    )
+  )
+
+fig2
+
+# with ggplot
+
+ggplot(data = no_Xist_no_Y_plots, aes(x = gene_names_short, y = TPM_counts,
+                                       group = id, color = id)) +
+       scale_color_discrete(guide = "none") +
+       geom_point() + geom_line() + scale_y_continuous(trans = "log10")
+
+ggplot(data = yes_Xist_yes_Y_plots, aes(x = gene_names_short, y = TPM_counts,
+                                        group = id, color = id)) +
+       scale_color_discrete(guide = "none") +
+       geom_point() + geom_line() + scale_y_continuous(trans = "log10")
+
+
 # Consider retaining an additional column for "assigned" = M/F
 not_inferred_plots <- reshape(not_inferred,
                               varying = gene_names,
@@ -307,9 +402,6 @@ fig2 <- fig2 %>%
 
 fig2
 
-not_inferred2 <- subset(not_inferred, select = -c(AR, AMELY, EIF1AY,
-                                                  KDM5D, NLGN4Y, PRKY,
-                                                  TMSB4Y, SRY))
 
 write_tsv(
   not_inferred2 %>% rownames_to_column(),
@@ -327,42 +419,3 @@ ggplot(data = not_inferred_plots2, aes(x = gene_names_short, y = TPM_counts,
                                        group = id, color = id)) +
   scale_color_discrete(guide = "none") +
   geom_point() + geom_line() + scale_y_continuous(trans = "log10")
-
-## OLD PLOTTING STUFF BELOW - MODIFY OR REMOVE
-new_counts2 <- data.frame(t(subset(ychr_counts,
-                                   select = -c(gene_name, gene_type))))
-colnames(new_counts2) <- ychr_counts[, 1]
-
-plotable_counts2 <- reshape(new_counts2,
-                            varying = ychr_gnames,
-                            v.names = "counts",
-                            timevar = "gene_names",
-                            times = ychr_gnames,
-                            direction = "long")
-
-fig <- plotable_counts2 %>%
-  plot_ly(
-    x = ~gene_names,
-    y = ~counts,
-    type = "violin",
-    box = list(
-      visible = TRUE
-    ),
-    meanline = list(
-      visible = TRUE
-    ),
-    x0 = ychr_gnames
-  )
-
-fig <- fig %>%
-  layout(
-    xaxis = list(
-      title = "gene"
-    ),
-    yaxis = list(
-      title = "TPM",
-      zeroline = FALSE
-    )
-  )
-
-fig
