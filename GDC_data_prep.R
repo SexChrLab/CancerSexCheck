@@ -10,11 +10,8 @@ library(TCGAutils)
 ### - BRCA - Breast Invasive Carcinoma
 ### - CESC - Cervical Squamous cell Carcinoma and Endocervical Adenocarcinoma
 ### - CHOL - Cholangiocarcinoma
-### - LCML - Chronic Myelogenous Leukemia
 ### - COAD - Colon Adenocarcinoma
-### - CNTL - Controls
 ### - ESCA - Esophageal Adenocarcinoma
-### - FPPP - FFPE Pilot Phase II
 ### - GBM  - Glioblastoma
 ### - HNSC - Head and Neck Squamous cell Carcinoma
 ### - KICH - Kidney Chromophobe
@@ -25,7 +22,6 @@ library(TCGAutils)
 ### - LUSC - Lung Squamous cell Carcinoma
 ### - DLBC - Lymphoid Neoplasm Diffuse Large B-cell Lymphoma
 ### - MESO - Mesothelioma
-### - MISC - Miscellaneous
 ### - OV   - Ovarian serous cystadenocarcinoma
 ### - PAAD - Pancreatic Adenocarcinoma
 ### - PCPG - Pheochromocytoma and Paraganglioma
@@ -35,15 +31,17 @@ library(TCGAutils)
 ### - SKCM - Skin Cutaneous Melanoma
 ### - STAD - Stomach Adenocarcinoma
 ### - TGCT - Testicular Germ Cell Tumor
+### - THCA - Thyroid gland
 ### - THYM - Thymoma
 ### - UCS  - Uterine Carcinosarcoma
 ### - UCEC - Uterine Corpus Endometrial Carcinoma
 ### - UVM  - Uveal Melanoma
 ### From https://gdc.cancer.gov/resources-tcga-users/tcga-code-tables/tcga-study-abbreviations
+###  - edited to match with actual sets available on the GDC portal
+###  - specifically, removed LCML, CNTL, FPPP, and MISC; added THCA
 
 ### List the TCGA types to run
-tcga_studies_to_prep <- c("LGG", "GBM", "LCML", "CNTL",
-                          "LUAD", "PAAD", "SKCM", "STAD")
+#tcga_studies_to_prep <- c("LGG", "GBM", "LIHC")
 
 working_path <- "~/Desktop/2023-Fall-CIREN/"
 setwd(working_path)
@@ -55,7 +53,8 @@ data_out_path <- "/data/CEM/shared/public_data/TCGA_RNAseq_counts/"
 ### LOOP OVER SPECIFIED TCGA STUDIES ###
 ########################################
 
-for (t in tcga_studies_to_prep) {
+#for (t in tcga_studies_to_prep) {
+  t = "GBM"
   study <- paste("TCGA", t, sep = "-")
 
   ################
@@ -79,7 +78,7 @@ for (t in tcga_studies_to_prep) {
                               surv_times, follow_list))
 
   # Save out metadata as a tsv file
-  meta_fname <- paste(study, META.tsv, sep = "-")
+  meta_fname <- paste(study, 'META.tsv', sep = "-")
   meta_path <- paste(data_out_path, meta_fname, sep = "")
   write_tsv(
     meta_df,
@@ -151,9 +150,12 @@ for (t in tcga_studies_to_prep) {
                                            stranded_second, tpm_unstranded,
                                            fpkm_unstranded))
 
-  # Extract the uuid from the filename string & find corresponding case uuid
+  # Extract the uuid from the filename string & find corresponding case uuid;
+  # then concatenate these to create a combination uuid 
   # - having both will help identify any repeated samples from same case
-  file_uuid <- substr(files[1], 48, 83)
+  # - as well as match up with metadata
+  pre_fuuid <- gsub(paste(working_path, download_path, sep = ""), "", files[1])
+  file_uuid <- strsplit(pre_fuuid, "[/]")[[1]][1]
   case_uuid <- UUIDtoUUID(file_uuid, to_type = "case_id")
   combo_uuid <- paste(file_uuid, case_uuid[1, 2], sep = "_")
 
@@ -166,7 +168,8 @@ for (t in tcga_studies_to_prep) {
   for (filename in files[2:length(files)]) {
 
     # extract the uuid from the filename string & find corresponding case uuid
-    file_uuid <- substr(filename, 48, 83)
+    pre_fuuid <- gsub(paste(working_path, download_path, sep = ""), "", filename)
+    file_uuid <- strsplit(pre_fuuid, "[/]")[[1]][1]
     case_uuid <- UUIDtoUUID(file_uuid, to_type = "case_id")
     combo_uuid <- paste(file_uuid, case_uuid[1, 2], sep = "_")
 
@@ -261,4 +264,4 @@ for (t in tcga_studies_to_prep) {
     progress = show_progress()
   )
 
-}
+#}

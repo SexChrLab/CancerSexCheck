@@ -5,10 +5,22 @@ library(tidyverse)
 library(ggplot2)
 library(plotly)
 
-# Read in data files of interest/to use
+# Specify which TCGA study to analyze
+study = "LGG"
+
+# Set directories
 setwd("~/Desktop/2023-Fall-CIREN/")
-counts <- read.delim("/data/CEM/shared/public_data/TCGA_RNAseq_counts/TCGA_LIHC_TPM.tsv", row.names = 1)
-metadf <- read.delim("/data/CEM/shared/public_data/TCGA_RNAseq_counts/TCGA_LIHC_META.tsv", row.names = 1)
+filepath <- "/data/CEM/shared/public_data/TCGA_RNAseq_counts/"
+
+counts_fname <- paste("TCGA", study, "TPM.tsv", sep = "-")
+meta_fname <- paste("TCGA", study, "META.tsv", sep = "-")
+
+counts_path <- paste(filepath, counts_fname, sep = "")
+meta_path <- paste(filepath, meta_fname, sep = "")
+
+# Read in data
+counts <- read.delim(counts_path, row.names = 1)
+metadf <- read.delim(meta_path, row.names = 1)
 
 # Modify row id's in metadf to correspond to similar format in counts
 meta_ids <- rownames(metadf)
@@ -103,9 +115,10 @@ for (x in c_uuid) {
 }
 
 # repeats_df dataframe to tsv
+repeats_fname <- paste("TCGA", study, "repeat_samples_TPM_counts.tsv", sep = "_")
 write_tsv(
   repeats_df %>% rownames_to_column(),
-  "TCGA_LIHC_repeat_samples_TPM_counts.tsv",
+  repeats_fname,
   na = "NA",
   append = FALSE,
   col_names = TRUE,
@@ -122,89 +135,89 @@ write_tsv(
 sex_check <- data.frame(matrix(0, length(c_uuid), 5),
                         row.names = c_uuid)
 colnames(sex_check) <- c("status_XIST", "status_Y", "annotated_sex",
-                         "survival_status", "time")
+                         "survival_status", "time_to_status")
 
 dummy_df <- data.frame(matrix(0, length(id_list), 5))
 
-counts_p <- data.frame(c(new_counts, dummy_df))
-row.names(counts_p) <- row.names(new_counts)
-colnames(counts_p) <- c(colnames(new_counts), "status_XIST", "status_Y",
+counts_plus <- data.frame(c(new_counts, dummy_df))
+row.names(counts_plus) <- row.names(new_counts)
+colnames(counts_plus) <- c(colnames(new_counts), "status_XIST", "status_Y",
                         "annotated_sex", "survival", "followed")
 
-### THE CODE BELOW HANDLES ONLY TWO SAMPLES PER CASE.
+### THE CODE BELOW HANDLES ONLY TWO SAMPLES PER CASE
 
 for (i in c_uuid){
   sex_check[i, "annotated_sex"] <- metadf[i, "mf_list"]
   if (metadf[i, "status_list"] == "Alive") {
     sex_check[i, "survival_status"] <- 0
-    sex_check[i, "time"] <- metadf[i, "follow_list"]
+    sex_check[i, "time_to_status"] <- metadf[i, "follow_list"]
   } else {
     sex_check[i, "survival_status"] <- 1
-    sex_check[i, "time"] <- metadf[i, "surv_times"]
+    sex_check[i, "time_to_status"] <- metadf[i, "surv_times"]
   }
   # Check if there are replicates and if so, handle those first:
   if (length(id_sets[[i]]) > 1) {
     iid1 <- id_sets[[i]][1]
     iid2 <- id_sets[[i]][2]
-    counts_p[iid1, "annotated_sex"] <- metadf[i, "mf_list"]
-    counts_p[iid2, "annotated_sex"] <- metadf[i, "mf_list"]
-    counts_p[iid1, "survival"] <- metadf[i, "surv_times"]
-    counts_p[iid2, "survival"] <- metadf[i, "surv_times"]
-    counts_p[iid1, "followed"] <- metadf[i, "follow_list"]
-    counts_p[iid2, "followed"] <- metadf[i, "follow_list"]
+    counts_plus[iid1, "annotated_sex"] <- metadf[i, "mf_list"]
+    counts_plus[iid2, "annotated_sex"] <- metadf[i, "mf_list"]
+    counts_plus[iid1, "survival"] <- metadf[i, "surv_times"]
+    counts_plus[iid2, "survival"] <- metadf[i, "surv_times"]
+    counts_plus[iid1, "followed"] <- metadf[i, "follow_list"]
+    counts_plus[iid2, "followed"] <- metadf[i, "follow_list"]
     # Evaluate each replicate individually
     # -- Y chromosome:
     if (all(new_counts[iid1, "DDX3Y"] < 1.0,
             new_counts[iid1, "USP9Y"] < 1.0,
             new_counts[iid1, "UTY"] < 1.0,
             new_counts[iid1, "ZFY"] < 1.0)) {
-      counts_p[iid1, "status_Y"] <- "no"
+      counts_plus[iid1, "status_Y"] <- "no"
     } else {
-      counts_p[iid1, "status_Y"] <- "yes"
+      counts_plus[iid1, "status_Y"] <- "yes"
     }
     if (all(new_counts[iid2, "DDX3Y"] < 1.0,
             new_counts[iid2, "USP9Y"] < 1.0,
             new_counts[iid2, "UTY"] < 1.0,
             new_counts[iid2, "ZFY"] < 1.0)) {
-      counts_p[iid2, "status_Y"] <- "no"
+      counts_plus[iid2, "status_Y"] <- "no"
     } else {
-      counts_p[iid2, "status_Y"] <- "yes"
+      counts_plus[iid2, "status_Y"] <- "yes"
     }
     # -- XIST: 
     if (new_counts[iid1, "XIST"] > 1.0) {
-      counts_p[iid1, "status_XIST"] <- "yes"
+      counts_plus[iid1, "status_XIST"] <- "yes"
     } else {
-      counts_p[iid1, "status_XIST"] <- "no"
+      counts_plus[iid1, "status_XIST"] <- "no"
     }
     if (new_counts[iid2, "XIST"] > 1.0) {
-      counts_p[iid2, "status_XIST"] <- "yes"
+      counts_plus[iid2, "status_XIST"] <- "yes"
     } else {
-      counts_p[iid2, "status_XIST"] <- "no"
+      counts_plus[iid2, "status_XIST"] <- "no"
     }
     # Now evaluate the *pairs* of replicates (only written for 2 reps!)
-    if ((counts_p[iid1, "status_Y"] == counts_p[iid2, "status_Y"]) &&
-        (counts_p[iid1, "status_XIST"] == counts_p[iid2, "status_XIST"])) {
+    if ((counts_plus[iid1, "status_Y"] == counts_plus[iid2, "status_Y"]) &&
+        (counts_plus[iid1, "status_XIST"] == counts_plus[iid2, "status_XIST"])) {
       # -- If the pairs match, take the first one as the *case* status
-      sex_check[i, "status_Y"] <- counts_p[iid1, "status_Y"]
-      sex_check[i, "status_XIST"] <- counts_p[iid1, "status_XIST"]
+      sex_check[i, "status_Y"] <- counts_plus[iid1, "status_Y"]
+      sex_check[i, "status_XIST"] <- counts_plus[iid1, "status_XIST"]
       # -- If the pairs DO NOT match, check the three possibilities:
       # -- 1. Do both look totally different?
       #       (i.e. "yes, no" vs "no, yes" - or - "yes yes" vs "no no")
-    } else if ((counts_p[iid1, "status_Y"] != counts_p[iid2, "status_Y"]) &&
-               (counts_p[iid1, "status_XIST"] != counts_p[iid2, "status_XIST"])) {
+    } else if ((counts_plus[iid1, "status_Y"] != counts_plus[iid2, "status_Y"]) &&
+               (counts_plus[iid1, "status_XIST"] != counts_plus[iid2, "status_XIST"])) {
       # this is an unexpected edge case, so for now, just "flag" it as unusual
       sex_check[i, "status_Y"] <- "FLAG"
       sex_check[i, "status_XIST"] <- "FLAG"
       # -- 2. The first pair has "yes yes" or "no no":
-    } else if (counts_p[iid1, "status_XIST"] == counts_p[iid1, "status_Y"]) {
+    } else if (counts_plus[iid1, "status_XIST"] == counts_plus[iid1, "status_Y"]) {
       # Take "yes XIST, yes Y" or "no XIST, no Y" as the overall case status
-      sex_check[i, "status_Y"] <- counts_p[iid1, "status_Y"]
-      sex_check[i, "status_XIST"] <- counts_p[iid1, "status_XIST"]
+      sex_check[i, "status_Y"] <- counts_plus[iid1, "status_Y"]
+      sex_check[i, "status_XIST"] <- counts_plus[iid1, "status_XIST"]
       # -- 3. The second pair has "yes yes" or "no no":
-    } else if (counts_p[iid2, "status_XIST"] == counts_p[iid2, "status_Y"]) {
+    } else if (counts_plus[iid2, "status_XIST"] == counts_plus[iid2, "status_Y"]) {
       # Take "yes XIST, yes Y" or "no XIST, no Y" as the overall case status
-      sex_check[i, "status_Y"] <- counts_p[iid2, "status_Y"]
-      sex_check[i, "status_XIST"] <- counts_p[iid2, "status_XIST"]
+      sex_check[i, "status_Y"] <- counts_plus[iid2, "status_Y"]
+      sex_check[i, "status_XIST"] <- counts_plus[iid2, "status_XIST"]
     } else {
       # That should have handled all the cases, but just in case
       # something goes wrong with the evaluation of the conditionals
@@ -214,31 +227,31 @@ for (i in c_uuid){
     # Now look at cases with only a single sample:
   } else {
     iid <- id_sets[[i]]
-    counts_p[iid, "annotated_sex"] <- metadf[i, "mf_list"]
-    counts_p[iid, "survival"] <- metadf[i, "surv_times"]
-    counts_p[iid, "followed"] <- metadf[i, "follow_list"]
+    counts_plus[iid, "annotated_sex"] <- metadf[i, "mf_list"]
+    counts_plus[iid, "survival"] <- metadf[i, "surv_times"]
+    counts_plus[iid, "followed"] <- metadf[i, "follow_list"]
     if (all(new_counts[iid, "DDX3Y"] < 1.0,
             new_counts[iid, "USP9Y"] < 1.0,
             new_counts[iid, "UTY"] < 1.0,
             new_counts[iid, "ZFY"] < 1.0)) {
-      counts_p[iid, "status_Y"] <- "no"
+      counts_plus[iid, "status_Y"] <- "no"
       sex_check[i, "status_Y"] <- "no"
     } else {
-      counts_p[iid, "status_Y"] <- "yes"
+      counts_plus[iid, "status_Y"] <- "yes"
       sex_check[i, "status_Y"] <- "yes"
     }
     if (new_counts[iid, "XIST"] > 1.0) {
-      counts_p[iid, "status_XIST"] <- "yes"
+      counts_plus[iid, "status_XIST"] <- "yes"
       sex_check[i, "status_XIST"] <- "yes"
     } else {
-      counts_p[iid, "status_XIST"] <- "no"
+      counts_plus[iid, "status_XIST"] <- "no"
       sex_check[i, "status_XIST"] <- "no"
     }
   }
 }
 
 ## THE CODE ABOVE HANDLES ONLY UP TO TWO SAMPLES PER CASE, BUT
-## CASE d6486001.240a.455a.980c.e06c25c61fa5 HAS THREE SAMPLES!
+## CASE d6486001.240a.455a.980c.e06c25c61fa5 HAS THREE SAMPLES.
 ## THEY ARE: id_sets[["d6486001.240a.455a.980c.e06c25c61fa5"]]
 ## "X78a0f8f9.e010.4a10.978c.94c8bb9157cd_d6486001.240a.455a.980c.e06c25c61fa5"
 ## "X7b90b9fd.0015.47b9.9148.f040c1cfcb5a_d6486001.240a.455a.980c.e06c25c61fa5"
@@ -248,20 +261,21 @@ for (i in c_uuid){
 third_id <- "c7a64911.e1b0.4615.9521.98d4cd4a9882_d6486001.240a.455a.980c.e06c25c61fa5"
 tcase_id <- "d6486001.240a.455a.980c.e06c25c61fa5"
 other_id <- "X7b90b9fd.0015.47b9.9148.f040c1cfcb5a_d6486001.240a.455a.980c.e06c25c61fa5"
-counts_p[third_id, "status_XIST"] <- counts_p[other_id, "status_XIST"]
-counts_p[third_id, "status_Y"] <- counts_p[other_id, "status_Y"]
-counts_p[third_id, "annotated_sex"] <- metadf[tcase_id, "mf_list"]
-counts_p[third_id, "survival"] <- metadf[tcase_id, "surv_times"]
-counts_p[third_id, "followed"] <- metadf[tcase_id, "follow_list"]
+counts_plus[third_id, "status_XIST"] <- counts_plus[other_id, "status_XIST"]
+counts_plus[third_id, "status_Y"] <- counts_plus[other_id, "status_Y"]
+counts_plus[third_id, "annotated_sex"] <- metadf[tcase_id, "mf_list"]
+counts_plus[third_id, "survival"] <- metadf[tcase_id, "surv_times"]
+counts_plus[third_id, "followed"] <- metadf[tcase_id, "follow_list"]
 
 ###################################################
 ###---WRITE DATAFRAMES TO TSV FILES---###
 ###################################################
 
 # sex_check dataframe to tsv
+sex_check_fname <- paste("TCGA", study, "case_XIST-Y_outcomes.tsv", sep = "_")
 write_tsv(
   sex_check %>% rownames_to_column(),
-  "TCGA_LIHC_case_XIST-Y_outcomes.tsv",
+  sex_check_fname,
   na = "NA",
   append = FALSE,
   col_names = TRUE,
@@ -271,10 +285,12 @@ write_tsv(
   progress = show_progress()
 )
 
-# counts_p dataframe to tsv
+# counts_plus dataframe to tsv
+counts_plus_fname <- paste("TCGA", study, "sample_XIST-Y_outcomes.tsv", sep = "_")
+
 write_tsv(
-  counts_p %>% rownames_to_column(),
-  "TCGA_LIHC_sample_XIST-Y_TPM_counts.tsv",
+  counts_plus %>% rownames_to_column(),
+  counts_plus_fname,
   na = "NA",
   append = FALSE,
   col_names = TRUE,
@@ -303,8 +319,12 @@ df_points3 <- sex_check_f %>%
                            sex_check_f$status_Y, "Y", sep = ""))
 sex_check_f <- cbind(sex_check_f, df_points3)
 
-km_m <- survfit(Surv(time, survival_status) ~ XIST_Y, data = sex_check_m)
-km_f <- survfit(Surv(time, survival_status) ~ XIST_Y, data = sex_check_f)
+km_m <- survfit(Surv(time_to_status, survival_status) ~ XIST_Y, data = sex_check_m)
+km_f <- survfit(Surv(time_to_status, survival_status) ~ XIST_Y, data = sex_check_f)
+
+
+km_m_plot_fname <- paste("KM", study, "Male.png", sep = "_")
+png(km_m_plot_fname)
 
 km_m %>%
   ggsurvplot(
@@ -317,11 +337,15 @@ km_m %>%
     fontsize = 3, # used in risk table
     surv.median.line = "hv", # median horizontal and vertical ref lines
     ggtheme = theme_light(),
-    palette = c("goldenrod", "sienna", "tomato", "azure"),
+    palette = c("goldenrod", "sienna", "tomato", "cadetblue"),
     title = "LIHC - Male - Kaplan-Meier Survival Function Estimate",
     legend.title = "",
     legend.labs = levels(sex_check_m$XIST_Y)
   )
+dev.off()
+
+km_f_plot_fname <- paste("KM", study, "Female.png", sep = "_")
+png(km_f_plot_fname)
 
 km_f %>%
   ggsurvplot(
@@ -334,11 +358,12 @@ km_f %>%
     fontsize = 3, # used in risk table
     surv.median.line = "hv", # median horizontal and vertical ref lines
     ggtheme = theme_light(),
-    palette = c("goldenrod", "sienna", "tomato", "azure"),
+    palette = c("goldenrod", "sienna", "tomato","cadetblue"),
     title = "LIHC - Female - Kaplan-Meier Survival Function Estimate",
     legend.title = "",
     legend.labs = levels(sex_check_f$XIST_Y)
   )
+dev.off()
 
 ###################################################
 ###---COUNT GROUP MEMBERSHIP FOR TABLE---###
@@ -363,31 +388,49 @@ n_female_yxny <- nrow(sex_check_f[sex_check_f$XIST_Y == "yesXIST_noY", ])
 #####################################################
 library(patchwork)
 
-pXIST <- ggplot(data = counts_p, aes(factor(annotated_sex), XIST))
+violin1_fname <- paste("Log_Violin", study, "TPM_XIST.png", sep = "_")
+png(violin1_fname)
+pXIST <- ggplot(data = counts_plus, aes(factor(annotated_sex), XIST))
 pXIST <- pXIST + geom_violin() + scale_y_continuous(trans = "log10") +
   geom_jitter(height = 0, width = 0.1)
+dev.off()
 
-pDDX3Y <- ggplot(data = counts_p, aes(factor(annotated_sex), DDX3Y))
+violin2_fname <- paste("Log_Violin", study, "TPM_DDX3Y.png", sep = "_")
+png(violin2_fname)
+pDDX3Y <- ggplot(data = counts_plus, aes(factor(annotated_sex), DDX3Y))
 pDDX3Y <- pDDX3Y + geom_violin() + scale_y_continuous(trans = "log10") +
   geom_jitter(height = 0, width = 0.1)
+dev.off()
 
-pUSP9Y <- ggplot(data = counts_p, aes(factor(annotated_sex), USP9Y))
+violin3_fname <- paste("Log_Violin", study, "TPM_USP9Y.png", sep = "_")
+png(violin3_fname)
+pUSP9Y <- ggplot(data = counts_plus, aes(factor(annotated_sex), USP9Y))
 pUSP9Y <- pUSP9Y + geom_violin() + scale_y_continuous(trans = "log10") +
   geom_jitter(height = 0, width = 0.1)
+dev.off()
 
-pUTY <- ggplot(data = counts_p, aes(factor(annotated_sex), UTY))
+violin4_fname <- paste("Log_Violin", study, "TPM_UTY.png", sep = "_")
+png(violin4_fname)
+pUTY <- ggplot(data = counts_plus, aes(factor(annotated_sex), UTY))
 pUTY <- pUTY + geom_violin() + scale_y_continuous(trans = "log10") +
   geom_jitter(height = 0, width = 0.1)
+dev.off()
 
-pZFY <- ggplot(data = counts_p, aes(factor(annotated_sex), ZFY))
+violin5_fname <- paste("Log_Violin", study, "TPM_ZFY.png", sep = "_")
+png(violin5_fname)
+pZFY <- ggplot(data = counts_plus, aes(factor(annotated_sex), ZFY))
 pZFY <- pZFY + geom_violin() + scale_y_continuous(trans = "log10") +
   geom_jitter(height = 0, width = 0.1)
+dev.off()
 
+violin6_fname <- paste("Log_Violin", study, "TPM_All.png", sep = "_")
+png(violin6_fname)
 p_all <-pXIST | (pDDX3Y | pUSP9Y) / (pUTY | pZFY)
 p_all
+dev.off()
 
-# try violins in plotly
-figDDX3Y <- counts_p %>%
+# Violins in plotly for interactive viewing
+figDDX3Y <- counts_plus %>%
   plot_ly(
     x = ~annotated_sex, y = ~DDX3Y,
     split = ~annotated_sex,
@@ -400,7 +443,7 @@ figDDX3Y <- counts_p %>%
                  range = c(-3, 3))
   )
 
-figUSP9Y <- counts_p %>%
+figUSP9Y <- counts_plus %>%
   plot_ly(
     x = ~annotated_sex, y = ~USP9Y,
     split = ~annotated_sex,
@@ -413,7 +456,7 @@ figUSP9Y <- counts_p %>%
                  range = c(-3, 3))
   )
 
-figUTY <- counts_p %>%
+figUTY <- counts_plus %>%
   plot_ly(
     x = ~annotated_sex, y = ~UTY,
     split = ~annotated_sex,
@@ -426,7 +469,7 @@ figUTY <- counts_p %>%
                  range = c(-3, 3))
   )
 
-figZFY <- counts_p %>%
+figZFY <- counts_plus %>%
   plot_ly(
     x = ~annotated_sex, y = ~ZFY,
     split = ~annotated_sex,
@@ -439,7 +482,7 @@ figZFY <- counts_p %>%
                  range = c(-3, 3))
   )
 
-figXIST <- counts_p %>%
+figXIST <- counts_plus %>%
   plot_ly(
     x = ~annotated_sex, y = ~XIST,
     split = ~annotated_sex,
@@ -470,10 +513,10 @@ fig
 # Two Groups of Interest:
 
 # 1. no XIST and no Y
-nxny_counts <- counts_p %>% filter(status_XIST == "no" & status_Y == "no")
+nxny_counts <- counts_plus %>% filter(status_XIST == "no" & status_Y == "no")
 
 # 2. yes XIST and yes Y
-yxyy_counts <- counts_p %>% filter(status_XIST == "yes" & status_Y == "yes")
+yxyy_counts <- counts_plus %>% filter(status_XIST == "yes" & status_Y == "yes")
 
 # Prepping list of gene names for plot functions below:
 gene_names <- c("XIST", "DDX3Y", "USP9Y", "UTY", "ZFY")
@@ -504,36 +547,40 @@ yxyy_plots <- reshape(yxyy_counts,
                       direction = "long")
 
 # Plot the lines
-## TO-DO: CHANGE TO COLOR BY M/F DESIGNATION, IF CAN DO EASILY ENOUGH?
 
 # Linear y-axis
+lineplot1_fname <- paste("TPM", study, "LowXIST-LowY_Color-by-Sex.png", sep = "_")
+png(lineplot1_fname)
 ggplot(data = nxny_plots, aes(x = gene_names, y = TPM_counts,
                               group = id, color = annotated_sex)) +  # color = id
   scale_color_discrete(guide = "none") + geom_point() + geom_line() +
   ggtitle("LIHC samples with No/Low XIST No/Low Y chr, inclusive of repeats") +
   theme(plot.title = element_text(hjust = 0.5))
+dev.off()
 
+lineplot2_fname <- paste("TPM", study, "HighXIST-HighY_Color-by-Sex.png", sep = "_")
+png(lineplot2_fname)
 ggplot(data = yxyy_plots, aes(x = gene_names, y = TPM_counts,
                               group = id, color = annotated_sex)) +  # color = id
   scale_color_discrete(guide = "none") + geom_point() + geom_line() +
   ggtitle("LIHC samples with XIST & Y markers TPM>1.0, inclusive of repeats") +
   theme(plot.title = element_text(hjust = 0.5))
-
-dev.copy(png, "myplot.png")
 dev.off()
 
-# or try
-# png('myplot.png'), # type before starting the plots
-# ggplot(data = ....), # use own plot code here
-# dev.off(), # turn the driver off to actually write the plot to file
-
 # Log y-axis
+loglineplot1_fname <- paste("TPM", study, "LowXIST-LowY_Color-by-Sex_Log-axis.png", sep = "_")
+png(loglineplot1_fname)
 ggplot(data = nxny_plots, aes(x = gene_names, y = TPM_counts,
                               group = id, color = annotated_sex)) +
   scale_color_discrete(guide = "none") +
   geom_point() + geom_line() + scale_y_continuous(trans = "log10")
+dev.off()
 
+
+loglineplot2_fname <- paste("TPM", study, "HighXIST-HighY_Color-by-Sex_Log-axis.png", sep = "_")
+png(loglineplot2_fname)
 ggplot(data = yxyy_plots, aes(x = gene_names, y = TPM_counts,
                               group = id, color = annotated_sex)) +
   scale_color_discrete(guide = "none") +
   geom_point() + geom_line() + scale_y_continuous(trans = "log10")
+dev.off()
