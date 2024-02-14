@@ -47,7 +47,7 @@ working_path <- "~/Desktop/2023-Fall-CIREN/"
 setwd(working_path)
 data_out_path <- "/data/CEM/shared/public_data/TCGA_RNAseq_counts/"
 
-
+### For this analysis to work, we must have the case ID to link together the metadata and the count data.
 
 ########################################
 ### LOOP OVER SPECIFIED TCGA STUDIES ###
